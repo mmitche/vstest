@@ -91,8 +91,6 @@ variables:
     - name: Codeql.Cadence 
       value: 0
 
-  # Group gives access to $microsoft-symbol-server-pat and $symweb-symbol-server-pat
-  - group: DotNet-Symbol-Server-Pats
   # Group gives access to $dn-bot-devdiv-drop-rw-code-rw and dn-bot-dnceng-build-rw-code-rw
   - group: DotNet-VSTS-Infra-Access
   - name: _DevDivDropAccessToken
@@ -109,9 +107,6 @@ variables:
     value: /p:DotNetSignType=$(_SignType)
       /p:TeamName=$(_TeamName)
       /p:DotNetFinalVersionKind=$(_ReleaseVersionKind)
-      /p:DotNetPublishUsingPipelines=true
-      /p:DotNetSymbolServerTokenMsdl=$(microsoft-symbol-server-pat)
-      /p:DotNetSymbolServerTokenSymWeb=$(symweb-symbol-server-pat)
       /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
       /p:VisualStudioDropName=$(VisualStudioDropName)
       /p:GenerateSbom=true
@@ -149,13 +144,14 @@ extends:
           enableMicrobuild: true
           enablePublishBuildArtifacts: true
           enablePublishBuildAssets: true
-          enablePublishUsingPipelines: true
+          publishingVersion: 4
           enablePublishTestResults: true
           testResultsFormat: 'vstest'
           enableTelemetry: true
           enableSourceBuild: true
           jobs:
           - job: Windows
+            enablePublishing: true
             timeoutInMinutes: 120
             pool:
               name: $(DncEngInternalBuildPool)
@@ -224,6 +220,18 @@ extends:
                     Remove-Item -LiteralPath "$(Build.SourcesDirectory)/artifacts/tmp/GeneratedTestAssets" -Recurse -Force
                   }
                 displayName: Remove artifacts/tmp/GeneratedTestAssets
+
+            - task: 1ES.PublishBuildArtifacts@1
+              displayName: 'Publish Shipping Packages'
+              inputs:
+                PathtoPublish: '$(Build.SourcesDirectory)/artifacts/packages/Release/Shipping'
+                ArtifactName: PackageArtifacts
+
+            - task: 1ES.PublishBuildArtifacts@1
+              displayName: 'Publish NonShipping Packages'
+              inputs:
+                PathtoPublish: '$(Build.SourcesDirectory)/artifacts/packages/Release/NonShipping'
+                ArtifactName: PackageArtifacts
 
             - task: 1ES.PublishBuildArtifacts@1
               displayName: 'Publish VSSetup'
@@ -362,5 +370,6 @@ extends:
 
     - template: eng/common/templates-official/post-build/post-build.yml@self
       parameters:
+        publishingInfraVersion: 4
         # Temporarily skip validation until infra issues are resolved, based on advice from Arcade.
         enableSigningValidation: false
